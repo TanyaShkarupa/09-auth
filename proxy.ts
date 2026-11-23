@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseSetCookie } from "cookie";
 import { checkSession } from "./lib/api/serverApi";
 
 const privateRoutes = ["/notes", "/profile"];
@@ -48,37 +49,11 @@ export async function proxy(request: NextRequest) {
   }
 
   for (const cookie of refreshedCookies) {
-    const [cookiePair, ...attributes] = cookie.split(";");
-    const separatorIndex = cookiePair.indexOf("=");
+    const { name, value, ...options } = parseSetCookie(cookie);
 
-    if (separatorIndex === -1) continue;
+    if (typeof value !== "string") continue;
 
-    const name = cookiePair.slice(0, separatorIndex).trim();
-    const value = cookiePair.slice(separatorIndex + 1).trim();
-
-    const getAttribute = (attribute: string) =>
-      attributes
-        .map((item) => item.trim())
-        .find((item) => item.toLowerCase().startsWith(`${attribute}=`))
-        ?.split("=")[1];
-
-    const sameSite = getAttribute("samesite")?.toLowerCase();
-
-    nextResponse.cookies.set(name, value, {
-      httpOnly: attributes.some(
-        (item) => item.trim().toLowerCase() === "httponly",
-      ),
-      secure: attributes.some((item) => item.trim().toLowerCase() === "secure"),
-      path: getAttribute("path") || "/",
-      domain: getAttribute("domain"),
-      maxAge: getAttribute("max-age")
-        ? Number(getAttribute("max-age"))
-        : undefined,
-      sameSite:
-        sameSite === "strict" || sameSite === "lax" || sameSite === "none"
-          ? sameSite
-          : undefined,
-    });
+    nextResponse.cookies.set(name, value, options);
   }
 
   return nextResponse;
