@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkSession } from "@/lib/api/serverApi";
 import { parseSetCookie } from "cookie";
-import { checkSession } from "./lib/api/serverApi";
 
-const privateRoutes = ["/notes", "/profile"];
+const privateRoutes = ["/profile", "/notes"];
 const publicRoutes = ["/sign-in", "/sign-up"];
 
 export async function proxy(request: NextRequest) {
@@ -24,41 +24,43 @@ export async function proxy(request: NextRequest) {
 
   if (!accessToken && refreshToken) {
     try {
-      const response = await checkSession();
+      const response = await checkSession(request.cookies.toString());
 
-      isAuthenticated = response.data.success;
+      isAuthenticated = response.data?.success ?? false;
 
       const setCookie = response.headers["set-cookie"];
 
-      if (setCookie) {
-        refreshedCookies = Array.isArray(setCookie) ? setCookie : [setCookie];
-      }
+      refreshedCookies = setCookie
+        ? Array.isArray(setCookie)
+          ? setCookie
+          : [setCookie]
+        : [];
     } catch {
       isAuthenticated = false;
     }
   }
 
-  let nextResponse: NextResponse;
+  let response: NextResponse;
 
   if (isPrivateRoute && !isAuthenticated) {
-    nextResponse = NextResponse.redirect(new URL("/sign-in", request.url));
+    response = NextResponse.redirect(new URL("/sign-in", request.url));
   } else if (isPublicRoute && isAuthenticated) {
-    nextResponse = NextResponse.redirect(new URL("/", request.url));
+    response = NextResponse.redirect(new URL("/", request.url));
   } else {
-    nextResponse = NextResponse.next();
+    response = NextResponse.next();
   }
 
-  for (const cookie of refreshedCookies) {
-    const { name, value, ...options } = parseSetCookie(cookie);
+  for (const cookieString of refreshedCookies) {
+    const parsed = parseSetCookie(cookieString);
 
-    if (typeof value !== "string") continue;
-
-    nextResponse.cookies.set(name, value, options);
+    if (parsed.value) {
+      response.cookies.set(parsed.name, parsed.value, parsed);
+    }
   }
 
-  return nextResponse;
+  return response;
 }
 
 export const config = {
-  matcher: ["/notes/:path*", "/profile/:path*", "/sign-in", "/sign-up"],
+  matcher: ["/profile/:path*", "/notes/:path*", "/sign-in", "/sign-up"],
 };
