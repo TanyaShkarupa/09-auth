@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { AxiosResponse } from "axios";
 import api from "./api";
 import type { Note } from "@/types/note";
 import type { User } from "@/types/user";
@@ -52,14 +53,14 @@ export async function getMe(): Promise<User> {
   return data;
 }
 
-export async function checkSession(): Promise<boolean> {
+export async function checkSession(): Promise<
+  AxiosResponse<{ success: boolean }>
+> {
   const cookie = await getCookieHeader();
 
-  const { data } = await api.get<{ success: boolean }>("/auth/session", {
+  return api.get<{ success: boolean }>("/auth/session", {
     headers: {
       Cookie: cookie,
     },
   });
-
-  return data.success;
 }
