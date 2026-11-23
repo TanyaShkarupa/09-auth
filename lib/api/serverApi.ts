@@ -53,10 +53,10 @@ export async function getMe(): Promise<User> {
   return data;
 }
 
-export async function checkSession(): Promise<
-  AxiosResponse<{ success: boolean }>
-> {
-  const cookie = await getCookieHeader();
+export async function checkSession(
+  cookieHeader?: string,
+): Promise<AxiosResponse<{ success: boolean }>> {
+  const cookie = cookieHeader ?? (await getCookieHeader());
 
   return api.get<{ success: boolean }>("/auth/session", {
     headers: {
